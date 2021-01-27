@@ -2,44 +2,64 @@ from PIL import ImageGrab, ImageOps
 import os
 import time
 import numpy as np
-import win32api, win32con
+
 
 XPAD = 0
 YPAD = 129
 
- 
-def LeftDown():
-    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN,0,0)
-    time.sleep(.1)
-    print("Left Down")
+SCORE_XPAD = 107
+SCORE_YPAD = 983
 
-def LeftUp():
-    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP,0,0)
-    time.sleep(.1)
-    print("Left Up")
+TRUTH_DATA_FILE = 'Score_data_truth.csv'
 
-def mousePos(cord):
-    win32api.SetCursorPos((XPAD + cord[0], YPAD + cord[1]))
-
-def get_cords():
-    x, y = win32api.GetCursorPos()
-    x = x - XPAD
-    y = y - YPAD
-    print (x, y)
 
 def screenGrab():
-    box = (XPAD + 1, YPAD + 1, XPAD + 1919, YPAD + 900)
-    im = ImageGrab.grab(bbox=box)
-    im = im.resize((480, 225))
-    im = ImageOps.grayscale(im)
-    im = ImageOps.autocontrast(im, cutoff=10)
+    game_box = (XPAD + 1, YPAD + 1, XPAD + 1919, YPAD + 900)
+    score_box = (SCORE_XPAD + 1, SCORE_YPAD + 1, SCORE_XPAD + 45, SCORE_YPAD + 16)
 
-    im_data = np.asarray(im)
-    im.save(os.getcwd() + '\\full_snap__' + str(int(time.time())) +
-'.png', 'PNG')
+    gameIm = ImageGrab.grab(bbox=game_box)
+    scoreIm = ImageGrab.grab(bbox=score_box)
+
+    
+    #gameIm = gameIm.resize((480, 225))
+    gameIm = ImageOps.grayscale(gameIm)
+    scoreIm = ImageOps.grayscale(scoreIm)
+
+    game_data = np.asarray(gameIm, dtype=np.float64)
+    score_data = np.asarray(scoreIm, dtype=np.float64)
+
+    return (gameIm, scoreIm, game_data, score_data)
+
+def saveData():
+    screen = screenGrab()
+    np.save(os.getcwd() + '/score_data/' + str(int(time.time())), screen[3])
  
+
+
+def saveImage():
+    screen = ImageGrab.grab(bbox=())
+    screen.save(os.getcwd() + '\\full_snap__' + str(int(time.time())) +'.png', 'PNG')
+
+def populateCSV():
+    data_file = open(os.getcwd() + '/' + TRUTH_DATA_FILE, 'w')
+    data_file.write('File, Value\n')
+    score_data = os.listdir(os.getcwd() + '/score_data/')
+    for score in score_data:
+        data_file.write(score + '\n')
+
+def record():
+    while True:
+        data_num = int(time.time())
+        print("Data!")
+        screen = screenGrab()
+        np.save(os.getcwd() + '/score_data/' + str(data_num), screen[3])
+        screen[1].save(os.getcwd() + '/score_image/' + str(data_num) + '.png', 'PNG')
+        data_num += 1
+        time.sleep(2)
+
+
 def main():
-    screenGrab()
+    saveImage()
  
 if __name__ == '__main__':
     main()

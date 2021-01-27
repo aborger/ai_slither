@@ -1,2 +1,2 @@
 # ai_slither
-AI that plays slither. This project is in the very early stages of development, and is really not worth looking at yet.
+AI that plays slither. Uses a DQN and computer vision to play slither.io. I made this in 3 days. It works, I just need to do training and see how it does.

@@ -8,6 +8,8 @@ from score_ai import ScoreKeeper
 from screen import screenGrab
 
 ACTION_SPACE = 3
+MODEL_DIR = './models/'
+SCORE_MODEL = MODEL_DIR + 'scoreModel2'
 
 # Configuration values
 class config:
@@ -16,6 +18,8 @@ class config:
     epsilon_discount = 0.95
     batch_size=32
     discount = 0.99
+
+    NUM_USER_TRAIN = 10
 
     optimizer = tf.keras.optimizers.Adam(1e-4)
     mse = tf.keras.losses.MeanSquaredError()
@@ -97,25 +101,80 @@ class Trainer:
             action = np.argmax(output)
             return action
 
+    def watch_action(self):
+        while True:
+            if win32api.GetAsyncKeyState(win32con.VK_LEFT):
+                print('Left')
+                return 0
+            if win32api.GetAsyncKeyState(win32con.VK_RIGHT):
+                print('right')
+                return 1
+            if win32api.GetAsyncKeyState(win32con.VK_SPACE):
+                print('space')
+                return 2
+
+
+    def watch(self):
+        state = self.env.reset()
+        done = False
+        ep_reward = 0
+
+        while not done:
+            action = self.watch_action()
+            next_state, reward, done = self.env.observe()
+
+            # save to experience replay
+            self.buffer.add(state, action, reward, next_state, done)
+            if reward > ep_reward:
+                ep_reward = reward
+
+            # prepare for next frame
+            self.cur_frame += 1
+            state = next_state
+
+            # copy main_nn weights to target_nn weights
+            if self.cur_frame % 2000 == 0:
+                self.target_nn.set_weights(self.main_nn.get_weights())
+
+        return ep_reward
+
+    def handsOn(self):
+        state = self.env.reset()
+        done = False
+        ep_reward = 0
+
+        while not done:
+            action = self.select_epsilon_greedy_action(state)
+            next_state, reward, done = self.env.step(action)
+
+            # save to experience replay
+            self.buffer.add(state, action, reward, next_state, done)
+            if reward > ep_reward:
+                ep_reward = reward
+
+            # prepare for next frame
+            self.cur_frame += 1
+            state = next_state
+
+            # copy main_nn weights to target_nn weights
+            if self.cur_frame % 2000 == 0:
+                self.target_nn.set_weights(self.main_nn.get_weights())
+
+        return ep_reward
+
+            
+
+
     def train(self):
         last_100_ep_rewards = []
+        # each episode is a game
         for episode in range(0, config.num_episodes):
-            state = self.env.reset()
-            ep_reward, done = 0, False
-            while not done:
-                action = self.select_epsilon_greedy_action(state)
-                next_state, reward, done = self.env.step(action)
+            ep_reward = 0
 
-                # save to experience replay
-                self.buffer.add(state, action, reward, next_state, done)
-                if reward > ep_reward:
-                    ep_reward = reward
-                # prepare for next frame
-                self.cur_frame += 1
-
-                # copy main_nn weights to target_nn weights
-                if self.cur_frame % 2000 == 0:
-                    self.target_nn.set_weights(self.main_nn.get_weights())
+            if episode < config.NUM_USER_TRAIN:
+                ep_reward = self.watch()
+            else:
+                ep_reward = self.handsOn()
 
             # Train main_nn
             if len(self.buffer) >= config.batch_size:
@@ -138,6 +197,7 @@ class Trainer:
             if episode % 1 == 0:
                 print(f'Episode {episode}/{config.num_episodes}. Epsilon: {config.epsilon:.3f}. \n'
 				f'Average Reward: {np.mean(last_100_ep_rewards):.2f}\n')
+                self.target_nn.save_weights(filepath=MODEL_DIR + 'slither_model_ep_' + str(episode) + '_reward_' +str(ep_reward))
 
         return self.target_nn
 
@@ -154,7 +214,7 @@ class Environment:
                             Action('right', self.__press_right), 
                             Action('space', self.__press_space)]
         self.score_ai = ScoreKeeper()
-        self.score_ai.load_weights('./scoreModel').expect_partial()
+        self.score_ai.load_weights(SCORE_MODEL).expect_partial()
 
         self.last_3_rewards = []
         
@@ -198,17 +258,16 @@ class Environment:
         self.last_3_rewards.append(reward)
         avg_reward = np.mean(self.last_3_rewards)
 
-        #print('Reward: ' + str(avg_reward))
-        return (game_screen, avg_reward)
-
-    def step(self, action):
-        self.action_space[action].perform()
-        state, reward = self.observe()
-
         done = False
         if reward == 0:
             done = True
 
+        print('Reward: ' + str(avg_reward))
+        return (game_screen, avg_reward, done)
+
+    def step(self, action):
+        self.action_space[action].perform()
+        state, reward, done = self.observe()
         return state, reward, done
 
     def random_action(self):

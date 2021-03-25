@@ -7,16 +7,17 @@ import time
 
 NUM_SCORE_DIGITS = 5
 IMAGE_DIR = '/score_image/'
-DATA_DIR = '/score_data/'
+DATA_DIR = '/score_ai_training/'
 TRAINING_DIR = DATA_DIR + 'training/'
 VALIDATION_DIR = DATA_DIR + 'validation/'
+MODEL_DIR = './models'
 SCORE_IMG_SHAPE = (1, 9, 15)
 
 
 class config:
     optimizer = tf.keras.optimizers.Adam(1e-4)
     mse = tf.keras.losses.MeanSquaredError()
-    epochs = 5
+    epochs = 50
 
 
 def ScoreDigits(score_img):
@@ -128,7 +129,9 @@ def train():
 
     truth_data = pd.read_csv(os.getcwd() + DATA_DIR + 'validation_truth.csv', index_col='File', sep=r'\s*,\s*', engine='python')
     validation_data = os.listdir(os.getcwd() + VALIDATION_DIR)
-    for epoch in range(0, config.epochs):
+    epoch = 0
+    done = 0
+    while epoch < config.epochs and done < 2:
         accuracy_sum = 0
         ai.train()
 
@@ -146,8 +149,11 @@ def train():
 
         print('Epoch: ' + str(epoch) + ' of ' + str(config.epochs))
         print('Accuracy: ' + str(accuracy_sum / len(validation_data)))
+        if int(accuracy_sum / len(validation_data)) > 90:
+            done += 1
+        epoch += 1
 
-    ai.save_weights(filepath=os.getcwd() + '/scoreModel')
+    ai.save_weights(filepath=MODEL_DIR + '/scoreModel2')
 
             
 

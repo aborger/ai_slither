@@ -1,4 +1,4 @@
-from PIL import ImageGrab, ImageOps
+from PIL import ImageGrab, ImageOps, Image
 import os
 import time
 import numpy as np
@@ -11,11 +11,11 @@ SCORE_XPAD = 107
 SCORE_YPAD = 983
 
 TRUTH_DATA_FILE = 'Score_data_truth.csv'
-
+NUM_SCORE_DIGITS = 5
+game_box = (XPAD + 1, YPAD + 1, XPAD + 1919, YPAD + 900)
+score_box = (SCORE_XPAD + 1, SCORE_YPAD + 1, SCORE_XPAD + 45, SCORE_YPAD + 16)
 
 def screenGrab():
-    game_box = (XPAD + 1, YPAD + 1, XPAD + 1919, YPAD + 900)
-    score_box = (SCORE_XPAD + 1, SCORE_YPAD + 1, SCORE_XPAD + 45, SCORE_YPAD + 16)
 
     gameIm = ImageGrab.grab(bbox=game_box)
     scoreIm = ImageGrab.grab(bbox=score_box)
@@ -37,15 +37,26 @@ def saveData():
 
 
 def saveImage():
-    screen = ImageGrab.grab(bbox=())
+    screen = ImageGrab.grab(bbox=score_box)
     screen.save(os.getcwd() + '\\full_snap__' + str(int(time.time())) +'.png', 'PNG')
+
+def showImage():
+    img = Image.open('scoreImg.png')
+    DIGIT_WIDTH = 9
+    for dig in range(0, NUM_SCORE_DIGITS):
+        cropped = img.crop((dig * DIGIT_WIDTH, 0, (dig + 1) * DIGIT_WIDTH, 15))
+        cropped.show()
+
 
 def populateCSV():
     data_file = open(os.getcwd() + '/' + TRUTH_DATA_FILE, 'w')
     data_file.write('File, Value\n')
-    score_data = os.listdir(os.getcwd() + '/score_data/')
+    score_data = os.listdir(os.getcwd() + '/score_image/')
     for score in score_data:
-        data_file.write(score + '\n')
+        img = Image.open(os.getcwd() + '/score_image/' + score)
+        img.show()
+        real_score = input("Enter Score: ")
+        data_file.write(score + ', ' + real_score + '\n')
 
 def record():
     while True:
@@ -59,7 +70,25 @@ def record():
 
 
 def main():
-    saveImage()
+    record()
  
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description='Control Trading AI')
+    parser.add_argument("command", metavar="<command>", help="'record', 'populate'")
+	
+    """
+    Examples:
+    parser.add_argument("-t", action='store_true', required=False,
+						help= "Include -t if this is a shortened test")
+						
+    parser.add_argument("--name", help = "Name for new model when training")
+    """
+						
+			
+    args = parser.parse_args()
+
+    if args.command == 'record':
+        record()
+    elif args.command == 'populate':
+        populateCSV()
